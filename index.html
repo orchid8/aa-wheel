@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AA Meeting Topic Wheel</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      color: #f0c040;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: #aaa;
+      margin-bottom: 28px;
+      font-style: italic;
+    }
+
+    .wheel-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 48px;
+    }
+
+    .wheel-area {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* WoF-style flapper */
+    .flapper {
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.9));
+      z-index: 10;
+      margin-bottom: -14px;
+    }
+
+    canvas {
+      border-radius: 50%;
+      box-shadow: 0 0 40px rgba(240, 192, 64, 0.25), 0 4px 24px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+
+    .spin-btn {
+      margin-top: 28px;
+      padding: 14px 48px;
+      font-size: 1.1rem;
+      font-family: 'Georgia', serif;
+      background: #f0c040;
+      color: #1a1a2e;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 16px rgba(240, 192, 64, 0.35);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .spin-btn:hover:not(:disabled) {
+      transform: scale(1.04);
+      box-shadow: 0 6px 20px rgba(240, 192, 64, 0.5);
+    }
+
+    .spin-btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    .spin-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .result-box {
+      text-align: center;
+      min-width: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .result-label {
+      font-size: 0.85rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+
+    .result-topic {
+      font-size: 1.7rem;
+      color: #f0c040;
+      font-weight: bold;
+      text-shadow: 0 2px 8px rgba(240, 192, 64, 0.3);
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .result-topic.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.78rem;
+      color: #555;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>AA Meeting Topic Wheel</h1>
+  <p class="subtitle">Spin to select today's discussion topic</p>
+
+  <div class="wheel-row">
+    <div class="wheel-area">
+      <svg class="flapper" viewBox="0 0 30 66" width="30" height="66" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="flapGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stop-color="#8a4e00"/>
+            <stop offset="28%"  stop-color="#f5d060"/>
+            <stop offset="72%"  stop-color="#f0c040"/>
+            <stop offset="100%" stop-color="#8a4e00"/>
+          </linearGradient>
+        </defs>
+        <!-- pivot circle -->
+        <circle cx="15" cy="9" r="9" fill="url(#flapGrad)" stroke="#5a3000" stroke-width="1.5"/>
+        <!-- tapered blade -->
+        <path d="M8,16 L22,16 L18,58 L15,66 L12,58 Z" fill="url(#flapGrad)" stroke="#5a3000" stroke-width="1.2"/>
+        <!-- rivet -->
+        <circle cx="15" cy="9" r="3.5" fill="#1a1a2e" opacity="0.55"/>
+      </svg>
+      <canvas id="wheel" width="420" height="420"></canvas>
+    </div>
+
+    <div class="result-box">
+      <div class="result-label" id="resultLabel" style="display:none">Today's Topic</div>
+      <div class="result-topic" id="resultTopic"></div>
+    </div>
+  </div>
+
+  <button class="spin-btn" id="spinBtn" onclick="spin()">Spin the Wheel</button>
+
+  <footer>One day at a time &bull; For use in AA meetings</footer>
+
+<script>
+  const topics = [
+    "Step 1",
+    "Gratitude",
+    "Acceptance",
+    "Step 2",
+    "Honesty",
+    "Service",
+    "Step 3",
+    "Fellowship",
+    "Serenity",
+    "Humility",
+    "Step 4",
+    "Surrender",
+    "Sponsorship",
+    "Step 5",
+    "Resentments",
+    "Fear",
+    "Step 6",
+    "Higher Power",
+    "Anonymity",
+    "Prayer and meditation",
+    "Step 7",
+    "Emotional sobriety",
+    "Half measures availed us nothing",
+    "Step 8",
+    "Cunning, baffling, powerful",
+    "Rigorous honesty",
+    "Step 9",
+    "Our liquor was but a symptom",
+    "We will not regret the past",
+    "We are not a glum lot",
+    "Step 10",
+    "Contempt prior to investigation",
+    "Home group",
+    "Step 11",
+    "Practicing principles in all affairs",
+    "H.A.L.T.",
+    "Step 12",
+    "Progress, not perfection",
+    "Let go and let God",
+    "Favorite quote/passage",
+    "This too shall pass",
+    "One day at a time"
+  ];
+
+  // Segment colors — bright, saturated palette
+  const colors = [
+    "#e05252","#e08030","#c8b828","#60c038",
+    "#28b890","#2878dc","#7040d8","#c038c0",
+    "#e04080","#d85c28","#90cc28","#20b8cc",
+    "#4860e0","#9040d0","#e02858","#30b058"
+  ];
+
+  // ── Audio ──────────────────────────────────────────
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function playTick(progress) {
+    try {
+      const ac  = getAudioCtx();
+      const dur = 0.022;
+      const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * dur), ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+
+      // Bandpass filter: high freq when fast, lower when slowing — like a real clacker
+      const bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 600 + (1 - progress) * 1600;
+      bp.Q.value = 1.4;
+
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(0.55, ac.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+
+      src.connect(bp);
+      bp.connect(gain);
+      gain.connect(ac.destination);
+      src.start(ac.currentTime);
+      src.stop(ac.currentTime + dur);
+    } catch(e) {}
+  }
+
+  function playWin() {
+    try {
+      const ac = getAudioCtx();
+      // Ascending major chord: C5 → E5 → G5 → C6
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ac.currentTime);
+        const t = ac.currentTime + i * 0.13;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.start(t);
+        osc.stop(t + 0.5);
+      });
+    } catch(e) {}
+  }
+  // ──────────────────────────────────────────────────
+
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const numSegments = topics.length;
+  const arc = (2 * Math.PI) / numSegments;
+  let currentAngle = 0;
+  let spinning = false;
+  let animFrameId = null;
+  let recentTopics = []; // indices of last 10 results
+
+  function lighten(hex, amt) {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const r = Math.min(255, (n >> 16) + amt);
+    const g = Math.min(255, ((n >> 8) & 0xff) + amt);
+    const b = Math.min(255, (n & 0xff) + amt);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function drawWheel(angle) {
+    const cx  = canvas.width / 2;
+    const cy  = canvas.height / 2;
+    const outerR = cx - 3;
+    const rimW   = 20;
+    const segR   = outerR - rimW;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // — Segments with radial gradient —
+    for (let i = 0; i < numSegments; i++) {
+      const sa = angle + i * arc;
+      const ea = sa + arc;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, segR, sa, ea);
+      ctx.closePath();
+      const base = colors[i % colors.length];
+      const grad = ctx.createRadialGradient(cx, cy, segR * 0.25, cx, cy, segR);
+      grad.addColorStop(0, base);
+      grad.addColorStop(1, lighten(base, 45));
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    // — Labels —
+    for (let i = 0; i < numSegments; i++) {
+      const sa = angle + i * arc;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(sa + arc / 2);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,0.95)';
+      ctx.shadowBlur = 3;
+      const topic  = topics[i];
+      const maxW   = segR - 30;
+      const fs     = topic.length > 22 ? 8.5 : topic.length > 16 ? 10 : 11.5;
+      ctx.font = `bold ${fs}px Georgia, serif`;
+      ctx.fillText(topic, segR - 8, 4, maxW);
+      ctx.restore();
+    }
+
+    // — Metallic outer rim —
+    const rimGrad = ctx.createRadialGradient(cx, cy, segR + 1, cx, cy, outerR - 1);
+    rimGrad.addColorStop(0,    '#111');
+    rimGrad.addColorStop(0.10, '#666');
+    rimGrad.addColorStop(0.42, '#e0e0e0');
+    rimGrad.addColorStop(0.68, '#777');
+    rimGrad.addColorStop(1,    '#1a1a1a');
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR,    0, 2 * Math.PI);
+    ctx.arc(cx, cy, segR + 1,  0, 2 * Math.PI, true);
+    ctx.fillStyle = rimGrad;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // — Pegs at each segment boundary —
+    for (let i = 0; i < numSegments; i++) {
+      const pa = angle + i * arc;
+      const pr = segR + rimW / 2;
+      const px = cx + Math.cos(pa) * pr;
+      const py = cy + Math.sin(pa) * pr;
+      const pg = ctx.createRadialGradient(px - 1, py - 1, 0.5, px, py, 4);
+      pg.addColorStop(0,   '#fff8cc');
+      pg.addColorStop(0.5, '#f0c040');
+      pg.addColorStop(1,   '#7a4e00');
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = pg;
+      ctx.fill();
+      ctx.strokeStyle = '#3a2000';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+
+    // — Center hub —
+    const hubR = 28;
+    const hg = ctx.createRadialGradient(cx - 8, cy - 8, 1, cx, cy, hubR);
+    hg.addColorStop(0,   '#ffffff');
+    hg.addColorStop(0.2, '#f8e060');
+    hg.addColorStop(0.6, '#c08010');
+    hg.addColorStop(1,   '#3a1e00');
+    ctx.beginPath();
+    ctx.arc(cx, cy, hubR, 0, 2 * Math.PI);
+    ctx.fillStyle = hg;
+    ctx.fill();
+    ctx.strokeStyle = '#f0c040';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // AA circle-and-triangle symbol — triangle inscribed in hub circle
+    const triR = hubR * 0.65;
+    ctx.beginPath();
+    for (let v = 0; v < 3; v++) {
+      const vAngle = -Math.PI / 2 + v * (2 * Math.PI / 3); // apex pointing up
+      const vx = cx + Math.cos(vAngle) * triR;
+      const vy = cy + Math.sin(vAngle) * triR;
+      if (v === 0) ctx.moveTo(vx, vy);
+      else ctx.lineTo(vx, vy);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = '#1a1a2e';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  drawWheel(currentAngle);
+
+  function getWinningIndex(angle) {
+    // Pointer is at top (–π/2). Normalize angle so 0 = top.
+    const normalized = ((-angle - Math.PI / 2) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    return Math.floor(normalized / arc) % numSegments;
+  }
+
+  function spin() {
+    if (spinning) return;
+    spinning = true;
+
+    const btn = document.getElementById('spinBtn');
+    btn.disabled = true;
+
+    // Hide previous result
+    const resultEl = document.getElementById('resultTopic');
+    const labelEl = document.getElementById('resultLabel');
+    resultEl.classList.remove('show');
+    resultEl.textContent = '';
+    labelEl.style.display = 'none';
+
+    // Clear previous highlight
+    document.querySelectorAll('.topic-tag').forEach(t => t.classList.remove('highlighted'));
+
+    // Pick a target topic not in the last 10 results
+    const available = topics.map((_, i) => i).filter(i => !recentTopics.includes(i));
+    const targetIdx = available[Math.floor(Math.random() * available.length)];
+
+    // Compute an endAngle that lands inside the target segment
+    const startAngle = currentAngle;
+    const randomOffset = (Math.random() * 0.6 + 0.2) * arc; // land 20–80% into segment
+    const endAngleBase = -(Math.PI / 2 + targetIdx * arc + randomOffset);
+    const minSpins = 5 + Math.random() * 3;
+    const extraN = Math.ceil(minSpins - (startAngle - endAngleBase) / (2 * Math.PI));
+    const endAngle = endAngleBase - 2 * Math.PI * Math.max(0, extraN);
+    const duration = 4000 + Math.random() * 1500; // 4–5.5 seconds
+    let startTime = null;
+    let lastTickIdx = -1;
+
+    // Warm up AudioContext on the user gesture that triggered spin()
+    getAudioCtx();
+
+    function easeOut(t) {
+      return 1 - Math.pow(1 - t, 4);
+    }
+
+    function animate(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOut(progress);
+
+      currentAngle = startAngle + (endAngle - startAngle) * easedProgress;
+      drawWheel(currentAngle);
+
+      // Tick each time the pointer crosses into a new segment
+      const curIdx = getWinningIndex(currentAngle);
+      if (curIdx !== lastTickIdx) {
+        playTick(easedProgress);
+        lastTickIdx = curIdx;
+      }
+
+      if (progress < 1) {
+        animFrameId = requestAnimationFrame(animate);
+      } else {
+        currentAngle = endAngle;
+        drawWheel(currentAngle);
+        spinning = false;
+        btn.disabled = false;
+
+        const winIdx = getWinningIndex(currentAngle);
+        const topic = topics[winIdx];
+
+        playWin();
+
+        // Track recents — topic won't reappear for next 10 spins
+        recentTopics.push(winIdx);
+        if (recentTopics.length > 10) recentTopics.shift();
+
+        resultEl.textContent = topic;
+        labelEl.style.display = 'block';
+        setTimeout(() => resultEl.classList.add('show'), 50);
+
+      }
+    }
+
+    animFrameId = requestAnimationFrame(animate);
+  }
+
+  // Also spin on canvas click
+  canvas.addEventListener('click', spin);
+</script>
+</body>
+</html>
